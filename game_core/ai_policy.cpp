@@ -1,9 +1,9 @@
 #include "ai_policy.h"
 
 #include "game_command.h"
-#include "../playhand.h"
-#include "../strategy.h"
-#include "../player.h"
+#include "playhand.h"
+#include "strategy.h"
+#include "player.h"
 
 #include <QDebug>
 

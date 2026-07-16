@@ -1,7 +1,7 @@
 #include "remote_game_session.h"
 #include "game_serialization.h"
-#include "../relay_client.h"
-#include "../networkdata.h"
+#include "relay_client.h"
+#include "networkdata.h"
 
 #include <QByteArray>
 #include <QDataStream>

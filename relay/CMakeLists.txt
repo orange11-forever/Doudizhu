@@ -15,17 +15,17 @@ set(RELAY_SOURCES
     room.h room.cpp
     relay_server.h relay_server.cpp
     server_room_game.h server_room_game.cpp
-    ../networkdata.h
+    ../src/networkdata.h
 )
 
 # game_core 中仅依赖 Qt Core 的部分。player/strategy 亦仅依赖 QObject+cards（无 UI），
 # 掉线 AI 托管(ai_policy)需要它们在服务器端运行同一套 AI 决策。
 set(GAME_CORE_SOURCES
-    ../card.h ../card.cpp
-    ../cards.h ../cards.cpp
-    ../playhand.h ../playhand.cpp
-    ../player.h ../player.cpp
-    ../strategy.h ../strategy.cpp
+    ../src/card.h ../src/card.cpp
+    ../src/cards.h ../src/cards.cpp
+    ../src/playhand.h ../src/playhand.cpp
+    ../src/player.h ../src/player.cpp
+    ../src/strategy.h ../src/strategy.cpp
     ../game_core/deck.h ../game_core/deck.cpp
     ../game_core/game_engine.h ../game_core/game_engine.cpp
     ../game_core/game_serialization.h ../game_core/game_serialization.cpp
@@ -34,7 +34,7 @@ set(GAME_CORE_SOURCES
 
 qt_add_executable(DouDiZhuRelay ${RELAY_SOURCES} ${GAME_CORE_SOURCES})
 
-target_include_directories(DouDiZhuRelay PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
+target_include_directories(DouDiZhuRelay PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/.. ${CMAKE_CURRENT_SOURCE_DIR}/../src)
 target_link_libraries(DouDiZhuRelay PRIVATE Qt6::Core Qt6::Network)
 
 # Console app (not GUI) — do NOT set WIN32_EXECUTABLE

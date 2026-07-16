@@ -79,31 +79,31 @@ find_package(Qt6 6.8 REQUIRED COMPONENTS
 
 # ---- 源文件列表 ----
 set(PROJECT_SOURCES
-        main.cpp
-        gamepanel.cpp
-        gamepanel_render.cpp
-        gamepanel_net.cpp
-        gamepanel_game.cpp
-        gamepanel_menu.cpp
-        gamepanel.h
-        gamepanel.ui
-        cardpanel.h
-        cardpanel.cpp
-        networkdata.h
-        relay_game_mapping.h
-        relay_game_mapping.cpp
-        musicplayer.h
-        musicplayer.cpp
-        chatpanel.h
-        chatpanel.cpp
-        relay_client.h relay_client.cpp
-        theme_manager.h theme_manager.cpp
-        chaos_engine.h chaos_engine.cpp
-        sticker_store.h sticker_store.cpp
-        sticker_widget.h sticker_widget.cpp
-        avatar_store.h avatar_store.cpp
-        avatar_picker.h avatar_picker.cpp
-        popup_widget.h popup_widget.cpp
+        src/main.cpp
+        src/gamepanel.cpp
+        src/gamepanel_render.cpp
+        src/gamepanel_net.cpp
+        src/gamepanel_game.cpp
+        src/gamepanel_menu.cpp
+        src/gamepanel.h
+        src/gamepanel.ui
+        src/cardpanel.h
+        src/cardpanel.cpp
+        src/networkdata.h
+        src/relay_game_mapping.h
+        src/relay_game_mapping.cpp
+        src/musicplayer.h
+        src/musicplayer.cpp
+        src/chatpanel.h
+        src/chatpanel.cpp
+        src/relay_client.h src/relay_client.cpp
+        src/theme_manager.h src/theme_manager.cpp
+        src/chaos_engine.h src/chaos_engine.cpp
+        src/sticker_store.h src/sticker_store.cpp
+        src/sticker_widget.h src/sticker_widget.cpp
+        src/avatar_store.h src/avatar_store.cpp
+        src/avatar_picker.h src/avatar_picker.cpp
+        src/popup_widget.h src/popup_widget.cpp
 )
 
 # ---- 资源文件 ----
@@ -119,9 +119,9 @@ qt_add_executable(DouDiZhu
     # once transitively through DouDiZhuGameCore. Embedding $<TARGET_OBJECTS>
     # here as well linked the same objects into the executable twice (tolerated
     # by GNU ld, but a multiple-definition risk under MSVC/other linkers).
-    robot.h robot.cpp
-    userplayer.h userplayer.cpp
-    gamecontrol_adapter.h gamecontrol_adapter.cpp
+    src/robot.h src/robot.cpp
+    src/userplayer.h src/userplayer.cpp
+    src/gamecontrol_adapter.h src/gamecontrol_adapter.cpp
     game_core/remote_game_session.h game_core/remote_game_session.cpp
 )
 
@@ -160,13 +160,13 @@ qt_finalize_executable(DouDiZhu)
 
 # ---- Shared Objects Library (避免重复链接) ----
 add_library(DouDiZhu_objects OBJECT
-    card.h card.cpp
-    cards.h cards.cpp
-    playhand.h playhand.cpp
-    player.h player.cpp
-    strategy.h strategy.cpp
+    src/card.h src/card.cpp
+    src/cards.h src/cards.cpp
+    src/playhand.h src/playhand.cpp
+    src/player.h src/player.cpp
+    src/strategy.h src/strategy.cpp
 )
-target_include_directories(DouDiZhu_objects PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(DouDiZhu_objects PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(DouDiZhu_objects PUBLIC Qt6::Core Qt6::Widgets)
 target_link_libraries(DouDiZhu_objects PRIVATE project_warnings)
 
@@ -185,7 +185,7 @@ add_library(DouDiZhuGameCore STATIC
     game_core/ai_policy.h game_core/ai_policy.cpp
     game_core/local_session.h game_core/local_session.cpp
 )
-target_include_directories(DouDiZhuGameCore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(DouDiZhuGameCore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(DouDiZhuGameCore PUBLIC Qt6::Core DouDiZhu_objects)
 target_link_libraries(DouDiZhuGameCore PRIVATE project_warnings)
 
@@ -242,7 +242,7 @@ if(BUILD_TESTING)
     add_executable(RemoteSessionTests
         tests/remote_session_tests.cpp
         game_core/remote_game_session.h game_core/remote_game_session.cpp
-        relay_client.h relay_client.cpp
+        src/relay_client.h src/relay_client.cpp
     )
     target_include_directories(RemoteSessionTests PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
