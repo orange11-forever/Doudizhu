@@ -1,0 +1,254 @@
+# ===================================================================
+# 斗地主（DouDiZhu）—— Qt/C++ 卡牌游戏
+# ===================================================================
+# 这是一个使用 CMake 构建的 Qt6 Widgets 项目，基于 C++17。
+#
+# 依赖：
+#   - Qt6 (或 Qt5) 模块：Widgets, Core, Network, Multimedia
+#   - 编译器支持 C++17
+#
+# 构建：
+#   mkdir build && cd build
+#   cmake .. -DCMAKE_PREFIX_PATH=/path/to/Qt6
+#   cmake --build .
+#
+# 文件结构：
+#   card.h/cpp          — 单张扑克牌（花色+点数）
+#   cards.h/cpp         — 牌集合（QSet 封装，支持增删查改）
+#   player.h/cpp        — 玩家基类（角色、方向、链表、虚函数）
+#   robot.h/cpp         — AI 机器人玩家（使用 QTimer 异步决策）
+#   userplayer.h/cpp    — 真人用户玩家
+#   playhand.h/cpp      — 牌型识别（16种牌型）与大小比较
+#   strategy.h/cpp      — AI 出牌策略（贪心算法）
+#   game_core/          — 游戏核心：GameEngine/LocalSession/Deck/序列化（纯逻辑，不依赖 UI）
+#   gamecontrol_adapter — 桥接 GamePanel ↔ LocalSession（保留旧信号接口）
+#   gamepanel.h/cpp/ui  — 主窗口 GUI（卡牌渲染、按钮、动画）
+#   cardpanel.h/cpp     — 单张牌的 GUI 控件
+#   chatpanel.h/cpp     — 联机聊天面板
+#   musicplayer.h/cpp   — 背景音乐/音效播放
+#   relay_client + relay/  — Relay 转发联机（客户端 + 独立中转服务器）
+#   networkdata.h       — 网络协议定义
+#
+# Author: DouDiZhu Team
+# ===================================================================
+
+cmake_minimum_required(VERSION 3.16)
+
+project(DouDiZhu VERSION 0.1 LANGUAGES CXX)
+
+# ---- Relay 服务器地址（编译期注入）----
+# 默认 127.0.0.1，本地开发直接连本机 relay。打发行客户端时用：
+#   cmake -DDOUDIZHU_RELAY_HOST=YOUR.RELAY.SERVER.IP ..
+# 注入公网 IP。运行时仍可用环境变量 DOUDIZHU_RELAY_HOST 覆盖此默认值。
+set(DOUDIZHU_RELAY_HOST "127.0.0.1" CACHE STRING "默认 relay 服务器地址（编译期注入到客户端）")
+
+# ---- Qt 自动化：MOC（元对象编译器）、UIC（UI 编译器）、RCC（资源编译器） ----
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
+
+# ---- C++ 标准 ----
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# ---- 编译告警 & Sanitizer（M-cmake）----
+# project_warnings 是一个 INTERFACE 目标，只把告警/sanitizer 选项加到本项目自有目标上，
+# 不波及 Qt 等第三方目标。用法：给自有目标 target_link_libraries(<tgt> PRIVATE project_warnings)。
+# 打开 sanitizer：cmake -DENABLE_SANITIZERS=ON ..（GCC/Clang，调试用；MSVC 忽略）。
+option(ENABLE_SANITIZERS "Build with AddressSanitizer + UBSan (GCC/Clang)" OFF)
+add_library(project_warnings INTERFACE)
+if(MSVC)
+    target_compile_options(project_warnings INTERFACE /W4)
+else()
+    target_compile_options(project_warnings INTERFACE -Wall -Wextra)
+    if(ENABLE_SANITIZERS)
+        target_compile_options(project_warnings INTERFACE
+            -fsanitize=address,undefined -fno-omit-frame-pointer)
+        target_link_options(project_warnings INTERFACE
+            -fsanitize=address,undefined)
+    endif()
+endif()
+
+# ---- 查找 Qt 模块 ----
+find_package(Qt6 6.8 REQUIRED COMPONENTS
+    Core
+    Widgets
+    Network
+    Multimedia
+)
+
+# ---- 源文件列表 ----
+set(PROJECT_SOURCES
+        main.cpp
+        gamepanel.cpp
+        gamepanel_render.cpp
+        gamepanel_net.cpp
+        gamepanel_game.cpp
+        gamepanel_menu.cpp
+        gamepanel.h
+        gamepanel.ui
+        cardpanel.h
+        cardpanel.cpp
+        networkdata.h
+        relay_game_mapping.h
+        relay_game_mapping.cpp
+        musicplayer.h
+        musicplayer.cpp
+        chatpanel.h
+        chatpanel.cpp
+        relay_client.h relay_client.cpp
+        theme_manager.h theme_manager.cpp
+        chaos_engine.h chaos_engine.cpp
+        sticker_store.h sticker_store.cpp
+        sticker_widget.h sticker_widget.cpp
+        avatar_store.h avatar_store.cpp
+        avatar_picker.h avatar_picker.cpp
+        popup_widget.h popup_widget.cpp
+)
+
+# ---- 资源文件 ----
+set(PROJECT_RESOURCES
+        resources.qrc
+)
+
+qt_add_executable(DouDiZhu
+    MANUAL_FINALIZATION
+    ${PROJECT_SOURCES}
+    ${PROJECT_RESOURCES}
+    # Note: DouDiZhu_objects is NOT embedded here. Its objects arrive exactly
+    # once transitively through DouDiZhuGameCore. Embedding $<TARGET_OBJECTS>
+    # here as well linked the same objects into the executable twice (tolerated
+    # by GNU ld, but a multiple-definition risk under MSVC/other linkers).
+    robot.h robot.cpp
+    userplayer.h userplayer.cpp
+    gamecontrol_adapter.h gamecontrol_adapter.cpp
+    game_core/remote_game_session.h game_core/remote_game_session.cpp
+)
+
+# ---- 链接 Qt 库 ----
+target_link_libraries(DouDiZhu PRIVATE
+    Qt6::Widgets
+    Qt6::Core
+    Qt6::Network
+    Qt6::Multimedia
+    DouDiZhuGameCore
+    project_warnings
+)
+
+# 把 relay 主机默认值以字符串字面量注入 relay_client.cpp（见该文件顶部的 #ifndef）
+target_compile_definitions(DouDiZhu PRIVATE
+    DOUDIZHU_RELAY_HOST="${DOUDIZHU_RELAY_HOST}"
+)
+
+# ---- 目标属性（平台相关） ----
+set_target_properties(DouDiZhu PROPERTIES
+    MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
+    MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
+    MACOSX_BUNDLE TRUE
+    WIN32_EXECUTABLE FALSE   # 临时关闭：显示控制台窗口以捕获崩溃信息（调试完后改回TRUE）
+)
+
+# ---- 安装规则 ----
+include(GNUInstallDirs)
+install(TARGETS DouDiZhu
+    BUNDLE DESTINATION .
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+qt_finalize_executable(DouDiZhu)
+
+# ---- Shared Objects Library (避免重复链接) ----
+add_library(DouDiZhu_objects OBJECT
+    card.h card.cpp
+    cards.h cards.cpp
+    playhand.h playhand.cpp
+    player.h player.cpp
+    strategy.h strategy.cpp
+)
+target_include_directories(DouDiZhu_objects PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(DouDiZhu_objects PUBLIC Qt6::Core Qt6::Widgets)
+target_link_libraries(DouDiZhu_objects PRIVATE project_warnings)
+
+# ---- Game Core Library ----
+# 注意：不要在此 embed $<TARGET_OBJECTS:DouDiZhu_objects>。这些对象已通过下方
+# target_link_libraries(... PUBLIC DouDiZhu_objects) 传递进来，恰好一次。两处都写
+# 会把同一批对象链接两遍（GNU ld 容忍，但 MSVC/其它链接器下多重定义风险）。
+add_library(DouDiZhuGameCore STATIC
+    game_core/game_types.h
+    game_core/game_state.h
+    game_core/game_command.h
+    game_core/game_event.h
+    game_core/deck.h game_core/deck.cpp
+    game_core/game_engine.h game_core/game_engine.cpp
+    game_core/game_serialization.h game_core/game_serialization.cpp
+    game_core/ai_policy.h game_core/ai_policy.cpp
+    game_core/local_session.h game_core/local_session.cpp
+)
+target_include_directories(DouDiZhuGameCore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(DouDiZhuGameCore PUBLIC Qt6::Core DouDiZhu_objects)
+target_link_libraries(DouDiZhuGameCore PRIVATE project_warnings)
+
+# ===================================================================
+# 引擎层端到端回归测试（阶段 5 / C2 恢复）
+# ===================================================================
+# 纯 Qt Core（+ 网络测试用 Qt Network），不依赖 UI/Widgets/Multimedia。
+# 复用 DouDiZhuGameCore 目标，避免重复编译核心源码。
+# 用法：cmake -DBUILD_TESTING=ON .. && cmake --build . && ctest
+# 关闭：默认关（BUILD_TESTING 由 CTest 模块引入，默认 ON；如需彻底跳过测试构建可 -DBUILD_TESTING=OFF）
+include(CTest)
+
+if(BUILD_TESTING)
+    find_package(Qt6 REQUIRED COMPONENTS Test)
+
+    # ---- 纯引擎层：只链 DouDiZhuGameCore（含 card/cards/playhand/player/strategy）----
+    foreach(pair
+        "GameCoreDeckTests:game_core_deck_tests.cpp:game_core_deck"
+        "PlayHandTests:playhand_tests.cpp:playhand"
+        "GameCoreEngineTests:game_core_engine_tests.cpp:game_core_engine"
+        "GameSerializationTests:game_serialization_tests.cpp:game_serialization"
+        "LocalSessionTests:local_session_tests.cpp:local_session"
+    )
+        string(REPLACE ":" ";" parts "${pair}")
+        list(GET parts 0 tgt)
+        list(GET parts 1 src)
+        list(GET parts 2 testname)
+        add_executable(${tgt} tests/${src})
+        target_include_directories(${tgt} PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests
+        )
+        target_link_libraries(${tgt} PRIVATE DouDiZhuGameCore)
+        add_test(NAME ${testname} COMMAND ${tgt})
+    endforeach()
+
+    # ---- 服务器权威端到端：编译 relay + 权威核心，用真实 TCP socket ----
+    add_executable(ServerAuthoritativeTests
+        tests/server_authoritative_tests.cpp
+        relay/room.h relay/room.cpp
+        relay/relay_server.h relay/relay_server.cpp
+        relay/server_room_game.h relay/server_room_game.cpp
+    )
+    target_include_directories(ServerAuthoritativeTests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/relay
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests
+    )
+    target_link_libraries(ServerAuthoritativeTests PRIVATE
+        Qt6::Core Qt6::Network DouDiZhuGameCore)
+    add_test(NAME server_authoritative COMMAND ServerAuthoritativeTests)
+
+    # ---- 客户端远程会话视图（无 socket，喂序列化事件）----
+    add_executable(RemoteSessionTests
+        tests/remote_session_tests.cpp
+        game_core/remote_game_session.h game_core/remote_game_session.cpp
+        relay_client.h relay_client.cpp
+    )
+    target_include_directories(RemoteSessionTests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests
+    )
+    target_link_libraries(RemoteSessionTests PRIVATE
+        Qt6::Core Qt6::Network DouDiZhuGameCore)
+    add_test(NAME remote_session COMMAND RemoteSessionTests)
+endif()

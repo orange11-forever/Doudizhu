@@ -1,0 +1,22 @@
+.venv/
+build/
+.cache/
+Desktop_*/
+__pycache__/
+*.pyc
+.worktrees/
+
+# 部署产物（发行打包 / relay 源码 tarball），不入库
+dist/
+doudizhu-relay-src.tar.gz
+build-dist/
+
+# 内部规划/审查笔记，不公开（含部署细节等）；仅保留在本地
+docs/
+
+# 编辑器 / IDE / 工具中间产物（含本机绝对路径等），不入库
+.vscode/
+.qtcreator/
+*.user
+.idea/
+.superpowers/
