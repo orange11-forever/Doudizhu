@@ -32,14 +32,14 @@
 
 **技术债集中在 UI 层的 `GamePanel`（主窗口），目前是一个典型的 God Class：**
 
-- 已按职责把实现**拆分到多个翻译单元**：
+- 已按职责把实现**拆分到多个翻译单元**（均位于 `src/`）：
   ```
-  gamepanel.cpp        750 行   // 初始化/构造骨架（尚未拆完）
-  gamepanel_net.cpp    650 行   // 网络 / Relay 联机层
-  gamepanel_game.cpp   571 行   // 单机游戏流程 / 回合回调 / 用户操作
-  gamepanel_menu.cpp   467 行   // 菜单 / 模式切换 / 主题 / 头像
-  gamepanel_render.cpp 395 行   // 卡牌渲染 / 布局 / 按钮显隐
-  gamepanel.h          266 行   // 共享的类声明
+  src/gamepanel.cpp        750 行   // 初始化/构造骨架（尚未拆完）
+  src/gamepanel_net.cpp    650 行   // 网络 / Relay 联机层
+  src/gamepanel_game.cpp   571 行   // 单机游戏流程 / 回合回调 / 用户操作
+  src/gamepanel_menu.cpp   467 行   // 菜单 / 模式切换 / 主题 / 头像
+  src/gamepanel_render.cpp 395 行   // 卡牌渲染 / 布局 / 按钮显隐
+  src/gamepanel.h          266 行   // 共享的类声明
   ```
 - **但"拆分"不等于"解耦"**：上述 `.cpp` 仍是**同一个 `GamePanel` 类**，方法全部声明在同一个头文件里，共享约 60 个私有成员（`m_gameControl` / `m_relayClient` / `m_remoteSession` / 各类卡牌控件 / 主题混沌头像状态……）。渲染、网络、菜单代码摸的是同一堆可变状态，模块间没有边界与归属。
 - 头文件仍 `#include` 全套依赖，任一依赖变动会触发 5 个 `.cpp` 全量重编。
@@ -53,17 +53,24 @@
 ## 目录结构
 
 ```
-game_core/            纯逻辑引擎：GameEngine（命令→事件）、GameState、序列化、AIPolicy、LocalSession
-relay/                独立 Relay 中转服务器：RelayServer / Room / ServerRoomGame + main.cpp
-gamepanel*.{h,cpp}    主窗口 GUI（见上文技术债）
-gamecontrol_adapter.* 桥接 GamePanel ↔ LocalSession（保留旧信号接口）
-relay_client.*        联机客户端（连接 Relay 服务器）
-game_core/remote_game_session.*  客户端服务器权威视图会话
-card/cards/playhand/player/strategy/robot/userplayer   基础牌型、玩家、AI 策略
-chatpanel / musicplayer / theme_manager / chaos_engine / sticker_store / avatar_store  辅助功能
-networkdata.h         网络协议定义（消息类型 + 卡牌编解码）
-tests/                引擎层单元测试 + 服务器端到端回归测试
-resources.qrc         资源（图片 / 音频 / 主题）
+DouDiZhu/
+├─ src/                  客户端全部源码
+│  ├─ main.cpp                       程序入口
+│  ├─ gamepanel*.{h,cpp,ui}          主窗口 GUI（见上文技术债）
+│  ├─ gamecontrol_adapter.*          桥接 GamePanel ↔ LocalSession（保留旧信号接口）
+│  ├─ relay_client.* / relay_game_mapping.*   联机客户端 + 消息映射
+│  ├─ networkdata.h                  网络协议定义（消息类型 + 卡牌编解码）
+│  ├─ card/cards/playhand/player/strategy/robot/userplayer   基础牌型、玩家、AI 策略
+│  ├─ cardpanel/chatpanel/popup_widget/sticker_widget/avatar_picker   UI 控件
+│  └─ musicplayer/theme_manager/chaos_engine/sticker_store/avatar_store   辅助功能
+├─ game_core/            纯逻辑引擎：GameEngine（命令→事件）、GameState、序列化、
+│                        AIPolicy、LocalSession、RemoteGameSession（客户端权威视图）
+├─ relay/                独立 Relay 中转服务器：RelayServer / Room / ServerRoomGame + main.cpp + Dockerfile
+├─ tests/                引擎层单元测试 + 服务器端到端回归测试
+├─ tools/                资源生成脚本（Python）
+├─ images/ themes/ avatars/ resources/   图片 / 主题 / 头像 / 音频等资源
+├─ resources.qrc         Qt 资源清单（编译期嵌入部分资源）
+└─ CMakeLists.txt        构建配置
 ```
 
 ---
